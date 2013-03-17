@@ -91,7 +91,7 @@ function addToTags(tagName) {
 }
 
 function connectSocket() {
-   var socket = new WebSocket('ws://67.169.126.197:7657/Playlists/' + playlistID + '/')
+   var socket = new WebSocket('ws://localhost:7657/Playlists/' + playlistID + '/')
    socket.onopen = function() {
       $("#greeting").html("Socket connected");
    }
