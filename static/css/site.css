@@ -1,0 +1,152 @@
+body, html, div
+{
+   margin:0;
+   padding:0;
+}
+
+
+body
+{
+   width:100%
+}
+#Search
+{
+   float:left;
+   width:430;
+}
+
+#Playlist
+{
+   width:425px;
+   float:right;
+}
+
+.video
+{
+   width:98%;
+   background:cornsilk;
+   margin:5px 0px;
+   cursor:default;
+}
+
+.video:hover
+{
+   outline:ridge;
+   outline-color:red;
+}
+
+.video .Thumbnail
+{
+   float:left;
+}
+
+.DeleteItem
+{
+   float:right;
+   height:20px;
+   width:20px;
+}
+
+.ActionItem
+{
+   background-size:20px 20px;
+   background-repeat:no-repeat;
+   background-position:center;
+   float:right;
+   height:20px;
+   width:20px;
+   padding:1px;
+   border-radius:15px;
+}
+
+#Playlist .ActionItem
+{
+   background-image:url('/static/images/delete32x32.png');
+}
+
+#Playlist .ActionItem:hover
+{
+   background-color:orange;
+}
+
+
+#SearchResults .ActionItem
+{
+   background-image:url('/static/images/round_add.png');
+}
+
+#SearchResults
+{
+   overflow:hidden;
+}
+
+.Tag
+{
+   float:left;
+   padding: 0px 5px;
+   margin:2px;
+   border:none;
+   background:gainsboro;
+   position:relative;
+   cursor:pointer;
+}
+
+.Tag:hover
+{
+   outline:ridge;
+}
+
+.Tag img
+{
+   width:12px;
+   height:12px;
+   margin: 5px 0px 0px 0px;
+   border-radius:12px;
+   cursor:default;
+}
+
+.Tag img:hover
+{
+   background:orange;
+}
+
+.NowPlaying
+{
+   background:pink;
+}
+
+#SearchTerm
+{
+   margin:5px;
+}
+.clear
+{
+   clear:both;
+}
+
+#wrapper
+{
+   float:right;
+   width:785px;
+   margin: 0px 5px;
+}
+#Player
+{
+   margin-left:auto;
+   margin-right:auto;
+   padding:5px;
+   float:left;
+   overflow:auto;
+   width:350px;
+}
+#Player h2
+{
+   text-align:left;
+   width:100%;
+   white-space:pre-wrap;
+}
+
+#CreatePlaylist
+{
+   cursor:pointer;
+}

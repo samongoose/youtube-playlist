@@ -1,0 +1,76 @@
+{% extends "layout.html" %}
+
+{% block head %}
+
+{% import json %}
+
+<script type="text/javascript" src="{{ static_url('js/main.js') }}"></script>
+
+<script type="text/javascript">
+   {% if pid is not None %}
+      playlistID = {{ pid }};
+      playlistJson = {% raw playlist %};
+   {% end %}
+</script>
+
+<script type="text/html" id="video_template">
+   <div class="video" id="<%=docId%>">
+      <img class="Thumbnail" src=<%=media$group.media$thumbnail[0].url%> />
+      <div class="ActionItem">
+      </div>
+      <span class="Title"><%=title.$t%></span>
+      <br class="clear" />
+   </div>
+</script>
+
+<script type="text/html" id="tag_template">
+   <div class="Tag" id="<%=tagId%>">
+      <span class="TagName"><%=name%></span>
+      <img class="DeleteTag" src="{{static_url('images/delete32x32.png')}}" />
+   </div>
+</script>
+
+{% end block %}
+
+{% block body %}
+<div id="greeting">
+   {% if name %}
+      Playlist {{ escape(name) }}
+   {% end %}
+</div>
+
+<br />
+<div id="Search">
+   <input type="text" id="SearchTerm" />
+   <div id="SearchResults" class="VideoContainer"> 
+   </div>
+</div>
+<div id="wrapper">
+   <div id="Player">
+      <h2>Now Playing:<br /> <span id="NPTitle"></span></h2>
+      <br class="clear" />
+      <div id="ytapiplayer">
+      </div>
+   </div>
+   <div id="Playlist">
+      <h2 id="PlaylistName">
+         <span>
+            {% if name %}
+               {{ escape(name) }}
+            {% end %}
+         </span>
+      </h2>
+      <div id="PlaylistTags">
+         <span>Add Tag:</span><input type="text" id="AddTag" />
+         <div id="PlaylistTagsList">
+         </div>
+         <br class="clear" />
+      </div>
+      <div class="VideoContainer" id="PlaylistItems">
+      </div>
+   </div>
+</div>
+
+
+
+{% end %}

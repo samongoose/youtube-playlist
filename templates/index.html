@@ -1,0 +1,25 @@
+{% extends "layout.html" %}
+
+{% block head %}
+<script type="text/javascript" src="{{ static_url('js/main.js') }}"></script>
+
+<script type="text/html" id="tag_search_result_tmpl">
+   <div class="TagSearchResult" id=<%=docId%>>
+      <a class="PlaylistName" href="/Playlists/<%=id%>/"><%=name%></a>
+   </div>
+</script>
+
+{% end block %}
+
+{% block body %}
+<span id="CreatePlaylist">Create New Playlist</span>
+<br />
+OR
+<br />
+<div id="TagSearch">
+   <span>Search by tag:</span>
+   <input type="text" id="TagSearchTerm" />
+   <div id="TagSearchResults">
+   </div>
+</div>
+{% end block %}
