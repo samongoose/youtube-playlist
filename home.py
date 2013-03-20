@@ -6,220 +6,236 @@ import redis
 import json
 import os
 import tornado.websocket
-import utils
 import threading
 
 from datetime import timedelta
 
-from tornado.options import options
 from tornado.httpserver import HTTPServer
 from tornado.web import Application
 from tornado.websocket import WebSocketHandler
 from tornado.web import RequestHandler
-from utils import PlaylistKey, TagsKey, TagKey, PlaylistNameKey, NamesKey
+from utils import playlist_key, tags_key, tag_key, playlist_name_key, names_key
 from tornado.web import addslash
 
-r = redis.StrictRedis(host='localhost', port=6379, db=0)
+_redis_client = redis.StrictRedis(host='localhost', port=6379, db=0)
 
-def PublishChange(key, itemType, action):
-   publishInfo = {
-      'action':action,
-      'type':itemType
-   }
-   r.publish(key, json.dumps(publishInfo))
+def publish_change(key, item_type, action):
+    publish_info = {
+        'action':action,
+        'type':item_type
+    }
+    _redis_client.publish(key, json.dumps(publish_info))
 
 
 
 class PlaylistController(RequestHandler):
-   
-   @addslash
-   def get(self, playlist):
-      if len(playlist) <= 0:
-         #TODO:404
-         return self.write("")
-      playlistJson = {}
-      playlistJson['items'] = list(json.loads(s) for s in r.lrange(PlaylistKey(playlist), 0, -1))
-      playlistJson['tags'] = r.zrange(TagsKey(playlist), 0, -1)
-      name = r.get(PlaylistNameKey(playlist))
-      if (name is not None):
-         playlistJson['name'] = name
-      return self.render("playlist_view.html", pid=playlist, name=name, playlist=json.dumps(playlistJson))
+    
+    @addslash
+    def get(self, playlist):
+        if len(playlist) <= 0:
+            #TODO:404
+            return self.write("")
+        playlist_json = {}
+        playlist_json['items'] = list(json.loads(s)
+              for s in _redis_client.lrange(playlist_key(playlist), 0, -1))
+        playlist_json['tags'] = _redis_client.zrange(tags_key(playlist), 0, -1)
+        name = _redis_client.get(playlist_name_key(playlist))
+        if name is not None:
+            playlist_json['name'] = name
+        return self.render("playlist_view.html", 
+                  pid=playlist,
+                  name=name, 
+                  playlist =json.dumps(playlist_json))
 
   
-   def put(self, playlist):
-      if (len(playlist) <= 0):
-         #404?
-         return self.write("")
-      name = self.get_argument('name', None)
-      if (name is not None):
-         oldName = r.getset(PlaylistNameKey(playlist), name)
-         if (oldName is not None):
-            r.lrem(NamesKey(oldName), 0, oldName)
-         r.rpush(NamesKey(name), playlist)
+    def put(self, playlist):
+        if len(playlist) <= 0:
+            #404?
+            return self.write("")
+        name = self.get_argument('name', None)
+        if name is not None:
+            old_name = _redis_client.getset(playlist_name_key(playlist), name)
+            if old_name is not None:
+                _redis_client.lrem(names_key(old_name), 0, old_name)
+            _redis_client.rpush(names_key(name), playlist)
 
 
 class PlaylistsController(RequestHandler):
-   def post(self):
-      #create new playlist
-      playlist= r.incr("global:nextPlaylistId")
-      playlistName = 'Playlist ' + str(playlist)
-      r.set(PlaylistNameKey(playlist), playlistName)
-      r.rpush(NamesKey(playlistName), playlist)
-      self.set_header('Location', '/Playlists/' + str(playlist) + '/')
-      self.set_status(201)
-      return ""
+    def post(self):
+        #create new playlist
+        playlist = _redis_client.incr("global:nextPlaylistId")
+        playlist_name = 'Playlist ' + str(playlist)
+        _redis_client.set(playlist_name_key(playlist), playlist_name)
+        _redis_client.rpush(names_key(playlist_name), playlist)
+        self.set_header('Location', '/Playlists/' + str(playlist) + '/')
+        self.set_status(201)
+        return ""
 
-   def get(self):
-      results = []
-      tag = self.get_argument('tag', None)
-      if (tag is not None):
-         results = r.smembers(TagKey(tag))
+    @staticmethod
+    def get_playlist_data(pid):
+        name = _redis_client.get(playlist_name_key(pid))
+        if name is None:
+            name = "Untitled"
+        return { 'id':pid, 'name':name}
+
+    def get(self):
+        results = []
+        tag = self.get_argument('tag', None)
+        if tag is not None:
+            results = _redis_client.smembers(tag_key(tag))
+            
+        playlist_data = list(
+              PlaylistsController.get_playlist_data(p) for p in results)
          
-      def playlistGenerator(pid):
-         name = r.get(PlaylistNameKey(pid))
-         if (name is None):
-            name = "Untitled";
-         return { 'id':pid, 'name':name}
-
-      retVal = list(playlistGenerator(p) for p in results)
-       
-      return self.write(json.dumps(retVal))
+        return self.write(json.dumps(playlist_data))
 
 
 class TagsController(RequestHandler):
-   def post(self, playlist):
-      newTag = self.request.body
-      if (len(newTag) <= 0):
-         return self.write("")
-      nextTag = r.incr('playlists:%s:nextTagID' % playlist)
-      added = r.zadd(TagsKey(playlist), nextTag, newTag) == True
-      if not added:
-         print "Failure"
-         return self.write("")
-      
-      r.sadd(TagKey(newTag), playlist)
-      #self.set_header('Location', '/Playlists/%s/Tags/%s/' % (playlist, listLength))
-      self.set_status(201)
-      PublishChange(PlaylistKey(playlist), 'tag', 'add')
-      return self.write("")
+    def post(self, playlist):
+        new_tag = self.request.body
+        if len(new_tag) <= 0:
+            return self.write("")
+        next_tag = _redis_client.incr('playlists:%s:next_tagID' % playlist)
+        added = _redis_client.zadd(
+              tags_key(playlist), next_tag, new_tag) == True
 
-   @addslash
-   def get(self, playlist):
-      tagsJson = json.dumps(r.zrange(TagsKey(playlist), 0, -1))
-      return self.write(tagsJson)
+        if not added:
+            print "Failure"
+            return self.write("")
+        
+        _redis_client.sadd(tag_key(new_tag), playlist)
+        self.set_status(201)
+        publish_change(playlist_key(playlist), 'tag', 'add')
+        return self.write("")
+
+    @addslash
+    def get(self, playlist):
+        tags_json = json.dumps(_redis_client.zrange(tags_key(playlist), 0, -1))
+        return self.write(tags_json)
 
 class TagController(RequestHandler):
-   def delete(self, playlist, tag):
-      if len(tag) <= 0:
-         #TODO:404
-         return self.write("")
-      r.zrem(TagsKey(playlist), tag)
-      r.srem(TagKey(tag), playlist)
-      PublishChange(PlaylistKey(playlist), 'tag', 'delete')
-      self.set_status(204)
-      self.write("")
+    def delete(self, playlist, tag):
+        if len(tag) <= 0:
+            #TODO:404
+            return self.write("")
+        _redis_client.zrem(tags_key(playlist), tag)
+        _redis_client.srem(tag_key(tag), playlist)
+        publish_change(playlist_key(playlist), 'tag', 'delete')
+        self.set_status(204)
+        self.write("")
 
 class ItemsController(RequestHandler):
-   def post(self, playlist):
-      newItem = self.request.body
-      if (len(newItem) <= 0):
-         return self.write("");
-      listLength = r.rpush('playlists:' + playlist, newItem)
-      PublishChange(PlaylistKey(playlist), 'item', 'add')
-      self.set_header('Location', '/Playlists/%s/Items/%s/' % (playlist, listLength))
-      self.set_status(201)
-      return self.write("")
+    def post(self, playlist):
+        new_item = self.request.body
+        if len(new_item) <= 0:
+            return self.write("")
+        list_length = _redis_client.rpush('playlists:' + playlist, new_item)
+        publish_change(playlist_key(playlist), 'item', 'add')
+        self.set_header('Location', '/Playlists/%s/Items/%s/' % 
+                       (playlist, list_length))
+        self.set_status(201)
+        return self.write("")
 
 
-   @addslash
-   def get(self, playlist):
-      #TODO:Query here...
-      playlistJson = json.dumps(list(json.loads(s) for s in r.lrange(PlaylistKey(playlist), 0, -1)))
-      return self.write(playlistJson)
+    @addslash
+    def get(self, playlist):
+        #TODO:Query here...
+        playlist_json = json.dumps(
+              list(json.loads(s) 
+              for s in _redis_client.lrange(playlist_key(playlist), 0, -1)))
+        return self.write(playlist_json)
 
-class ItemController:
+class ItemController(RequestHandler):
 
-   @addslash
-   def get(self, playlist, item):
-      return r.lindex("playlists:" + playlist, int(item))
+    @addslash
+    def get(self, playlist, item):
+        return self.write(str(
+           _redis_client.lindex("playlists:" + playlist, int(item))))
 
-   def delete(self, playlist, item):
-      if len(item) <= 0:
-         print "error"
-         return self.write("")
+    def delete(self, playlist, item):
+        if len(item) <= 0:
+            print "error"
+            return self.write("")
 
-      index = int(item)
-      if (index < r.llen(PlaylistKey(playlist))):
-         r.lset(PlaylistKey(playlist), item, "TO_DELETE")
-         r.lrem(PlaylistKey(playlist), 0, "TO_DELETE")
-         PublishChange(PlaylistKey(playlist), 'item', 'delete')
-      self.set_status(204)
-      return self.write("")
+        index = int(item)
+        if index < _redis_client.llen(playlist_key(playlist)):
+            _redis_client.lset(playlist_key(playlist), item, "TO_DELETE")
+            _redis_client.lrem(playlist_key(playlist), 0, "TO_DELETE")
+            publish_change(playlist_key(playlist), 'item', 'delete')
+        self.set_status(204)
+        return self.write("")
 
 class Index(RequestHandler):
-   @addslash
-   def get(self):
-      return self.render("index.html")
+    @addslash
+    def get(self):
+        return self.render("index.html")
 
 
-class Handler(WebSocketHandler):
+class SocketHandler(WebSocketHandler):
 
-   class ListenerThread(threading.Thread):
-      def __init__(self, client, socket):
-         threading.Thread.__init__(self)
-         self.socket = socket
-         self.client = client
-         self.endThreadEvent = threading.Event()
+    class ListenerThread(threading.Thread):
+        def __init__(self, client, socket):
+            threading.Thread.__init__(self)
+            self._socket = socket
+            self._client = client
+            self.end_thread_event = threading.Event()
 
-      def run(self):
-         while not self.endThreadEvent.isSet():
-            for item in self.client.listen():
-               if (item['type'] == 'message'):
-                  self.socket.write_message(item['data'])
+        def run(self):
+            while not self.end_thread_event.isSet():
+                for item in self._client.listen():
+                    if item['type'] == 'message':
+                        self._socket.write_message(item['data'])
 
-   def listen(self, channel):
-      self.client = r.pubsub()
-      self.channel = channel
-      self.client.subscribe(self.channel)
-      self.listener = self.ListenerThread(self.client, self)
-      self.listener.setDaemon(True)
-      self.listener.start()
+    def __init__(self, *args, **kwargs):
+        WebSocketHandler.__init__(self, *args, **kwargs)
+        self._client = None
+        self._channel = None
+        self._listener = None
 
-   def on_message(self, msg):
-      if msg.kind == 'message':
-         self.write_message(msg.body)
+    def _listen(self, channel):
+        self._client = _redis_client.pubsub()
+        self._channel = channel
+        self._client.subscribe(self._channel)
+        self._listener = self.ListenerThread(self._client, self)
+        self._listener.setDaemon(True)
+        self._listener.start()
 
-   def open(self, playlist):
-      self.listen(PlaylistKey(playlist))
+    def on_message(self, msg):
+        if msg.kind == 'message':
+            self.write_message(msg.body)
 
-   def on_close(self):
-      self.client.unsubscribe(self.channel)
-      self.listener.endThreadEvent.set()
-      print "closed"
-##########
+    def open(self, playlist):
+        self._listen(playlist_key(playlist))
 
-settings = {
-   "static_path": os.path.join(os.path.dirname(__file__), "static"),
-   "template_path": os.path.join(os.path.dirname(__file__), "templates"),
+    def on_close(self):
+        if self._listener is not None:
+            self._listener.end_thread_event.set()
+            self._client.unsubscribe(self._channel)
+        print "closed"
+
+_settings = {
+    "static_path": os.path.join(os.path.dirname(__file__), "static"),
+    "template_path": os.path.join(os.path.dirname(__file__), "templates"),
 }
 
 
-application = Application ([
-   (r"/Playlists/([^/]+)/Items/([^/]+)/?", ItemController),
-   (r"/Playlists/([^/]+)/Items/?", ItemsController),
-   (r"/Playlists/([^/]+)/Tags/([^/]+)/?", TagController),
-   (r"/Playlists/([^/]+)/Tags/?", TagsController),
-   (r"/Playlists/([^/]+)/?", PlaylistController),
-   (r"/Playlists/?", PlaylistsController),
-   (r"/", Index)
-], **settings)
+_application = Application ([
+    (r"/Playlists/([^/]+)/Items/([^/]+)/?", ItemController),
+    (r"/Playlists/([^/]+)/Items/?", ItemsController),
+    (r"/Playlists/([^/]+)/Tags/([^/]+)/?", TagController),
+    (r"/Playlists/([^/]+)/Tags/?", TagsController),
+    (r"/Playlists/([^/]+)/?", PlaylistController),
+    (r"/Playlists/?", PlaylistsController),
+    (r"/", Index)
+], **_settings)
 
-def set_ping(ioloop, timeout):
-   ioloop.add_timeout(timeout, lambda: set_ping(ioloop, timeout))
+def set_ping(io_loop, timeout):
+    io_loop.add_timeout(timeout, lambda: set_ping(io_loop, timeout))
 
 if __name__ == "__main__":
-   application.listen(8888)
-   HTTPServer(Application([(r'/Playlists/(.*)/', Handler)])).listen(7657)
-   ioloop = tornado.ioloop.IOLoop.instance()
-   set_ping(ioloop, timedelta(seconds=2))
-   ioloop.start()
+    _application.listen(8888)
+    HTTPServer(Application(
+               [(r'/Playlists/(.*)/', SocketHandler)])).listen(7657)
+    _ioloop = tornado.ioloop.IOLoop.instance()
+    set_ping(_ioloop, timedelta(seconds=2))
+    _ioloop.start()

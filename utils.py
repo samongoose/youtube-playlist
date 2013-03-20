@@ -1,14 +1,14 @@
-def PlaylistKey(playlist):
+def playlist_key(playlist):
    return 'playlists:' + playlist
 
-def TagsKey(playlist):
+def tags_key(playlist):
    return 'playlists:%s:tags' % playlist
 
-def TagKey(tag):
+def tag_key(tag):
    return 'tags:' + tag
 
-def PlaylistNameKey(playlist):
+def playlist_name_key(playlist):
    return 'playlists:%s:name' % playlist
 
-def NamesKey(name):
+def names_key(name):
    return 'names:'+ name
