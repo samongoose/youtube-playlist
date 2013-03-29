@@ -92,7 +92,7 @@ function addToTags(tagName) {
 
 function connectSocket() {
    var options = {transports:['flashsocket', 'htmlfile', 'xhr-polling', 'jsonp-polling'], rememberTransport: false};
-   var sock = new io.connect('http://' + window.location.hostname + ':8002?playlistid='+playlistID, options);
+   var sock = new io.connect('http://' + window.location.hostname + '?playlistid='+playlistID, options);
    sock.on('connect', function() {
       $("#greeting").html("Socket connected");
    });
