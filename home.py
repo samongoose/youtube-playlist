@@ -263,7 +263,7 @@ if __name__ == "__main__":
     #HTTPServer(Application(
     #           [(r'/Playlists/(.*)/', SocketHandler)])).listen(7657)
     http_server = tornado.httpserver.HTTPServer(_application)
-    http_server.listen(8888)
+    http_server.listen(os.environ.get("PORT", 8888))
 
     tornadio2.server.SocketServer(_ws_app, xheaders=True, auto_start=False)
 
