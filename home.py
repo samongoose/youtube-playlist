@@ -237,23 +237,19 @@ _settings = {
 }
 
 _ws_router = tornadio2.router.TornadioRouter(SocketHandler)
-_ws_app = tornado.web.Application(
-    _ws_router.apply_routes([(r'/', SocketHandler)]),
-    flash_policy_port=os.environ.get("PORT",843),
-    flash_policy_file = op.join(ROOT, 'flashpolicy.xml'),
-    socket_io_port = os.environ.get("PORT", 8002)
-)
-
-
-_application = Application ([
-    (r"/Playlists/([^/]+)/Items/([^/]+)/?", ItemController),
-    (r"/Playlists/([^/]+)/Items/?", ItemsController),
-    (r"/Playlists/([^/]+)/Tags/([^/]+)/?", TagController),
-    (r"/Playlists/([^/]+)/Tags/?", TagsController),
-    (r"/Playlists/([^/]+)/?", PlaylistController),
-    (r"/Playlists/?", PlaylistsController),
-    (r"/", Index)
-], **_settings)
+_application = tornado.web.Application(
+    _ws_router.apply_routes([(r'/socket.io.js', SocketHandler),
+        (r"/Playlists/([^/]+)/Items/([^/]+)/?", ItemController),
+        (r"/Playlists/([^/]+)/Items/?", ItemsController),
+        (r"/Playlists/([^/]+)/Tags/([^/]+)/?", TagController),
+        (r"/Playlists/([^/]+)/Tags/?", TagsController),
+        (r"/Playlists/([^/]+)/?", PlaylistController),
+        (r"/Playlists/?", PlaylistsController),
+        (r"/", Index)]),
+    flash_policy_port= os.environ.get("PORT",843),
+    flash_policy_file= op.join(ROOT, 'flashpolicy.xml'),
+    socket_io_port= os.environ.get("PORT", 8888),
+    **_settings)
 
 def set_ping(io_loop, timeout):
     io_loop.add_timeout(timeout, lambda: set_ping(io_loop, timeout))
@@ -262,10 +258,10 @@ if __name__ == "__main__":
     #_application.listen(8888)
     #HTTPServer(Application(
     #           [(r'/Playlists/(.*)/', SocketHandler)])).listen(7657)
-    http_server = tornado.httpserver.HTTPServer(_application)
-    http_server.listen(os.environ.get("PORT", 8888))
+    #http_server = tornado.httpserver.HTTPServer(_application)
+    #http_server.listen(os.environ.get("PORT", 8888))
 
-    tornadio2.server.SocketServer(_ws_app, xheaders=True, auto_start=False)
+    tornadio2.server.SocketServer(_application, xheaders=True, auto_start=False)
 
     _ioloop = tornado.ioloop.IOLoop.instance()
     set_ping(_ioloop, timedelta(seconds=2))
