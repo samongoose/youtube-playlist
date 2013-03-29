@@ -17,7 +17,9 @@ from tornado.web import RequestHandler
 from utils import playlist_key, tags_key, tag_key, playlist_name_key, names_key
 from tornado.web import addslash
 
-_redis_client = redis.StrictRedis(host='localhost', port=6379, db=0)
+#_redis_client = redis.StrictRedis(host='localhost', port=6379, db=0)
+_redis_url = os.getenv('REDISTOGO_URL', 'redis://localhost:6379')
+_redis_client = redis.from_url(_redis_url)
 
 def publish_change(key, item_type, action):
     publish_info = {
