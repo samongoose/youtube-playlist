@@ -239,9 +239,9 @@ _settings = {
 _ws_router = tornadio2.router.TornadioRouter(SocketHandler)
 _ws_app = tornado.web.Application(
     _ws_router.apply_routes([(r'/', SocketHandler)]),
-    flash_policy_port=843,
+    flash_policy_port=os.environ.get("PORT",843),
     flash_policy_file = op.join(ROOT, 'flashpolicy.xml'),
-    socket_io_port = 8002
+    socket_io_port = os.environ.get("PORT", 8002)
 )
 
 
