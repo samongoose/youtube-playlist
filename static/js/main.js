@@ -91,22 +91,23 @@ function addToTags(tagName) {
 }
 
 function connectSocket() {
-   var socket = new WebSocket('ws://localhost:7657/Playlists/' + playlistID + '/')
-   socket.onopen = function() {
+   var options = {transports:['flashsocket', 'htmlfile', 'xhr-polling', 'jsonp-polling'], rememberTransport: false};
+   var sock = new io.connect('http://' + window.location.hostname + ':8002?playlistid='+playlistID, options);
+   sock.on('connect', function() {
       $("#greeting").html("Socket connected");
-   }
+   });
 
-   socket.onmessage = function(msg) {
-      $("#greeting").html("message received: " + msg.data);
-      var info = JSON.parse(msg.data);
+   sock.on('message', function(msg) {
+      $("#greeting").html("message received: " + msg);
+      var info = JSON.parse(msg);
       if (info.type == 'tag') {
          refreshTags();
       } else if (info.type == 'item') {
          refreshItems();
       }
-         }
+   });
 
-   socket.onclose = function() {
+   sock.onclose = function() {
       $("#greeting").html("socket closed");
    }
 }

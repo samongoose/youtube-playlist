@@ -7,6 +7,8 @@ import json
 import os
 import tornado.websocket
 import threading
+import tornadio2
+
 
 from datetime import timedelta
 
@@ -16,6 +18,10 @@ from tornado.websocket import WebSocketHandler
 from tornado.web import RequestHandler
 from utils import playlist_key, tags_key, tag_key, playlist_name_key, names_key
 from tornado.web import addslash
+from tornadio2 import SocketConnection, TornadioRouter, SocketServer, event
+from os import path as op
+
+ROOT = op.normpath(op.dirname(__file__))
 
 #_redis_client = redis.StrictRedis(host='localhost', port=6379, db=0)
 _redis_url = os.getenv('REDISTOGO_URL', 'redis://localhost:6379')
@@ -34,6 +40,7 @@ class PlaylistController(RequestHandler):
     
     @addslash
     def get(self, playlist):
+        print "getting playlist " + str(playlist)
         if len(playlist) <= 0:
             #TODO:404
             return self.write("")
@@ -98,8 +105,9 @@ class TagsController(RequestHandler):
         if len(new_tag) <= 0:
             return self.write("")
         next_tag = _redis_client.incr('playlists:%s:next_tagID' % playlist)
+        print 'adding tag ' + str(next_tag)
         added = _redis_client.zadd(
-              tags_key(playlist), next_tag, new_tag) == True
+              tags_key(playlist), new_tag, next_tag) == True
 
         if not added:
             print "Failure"
@@ -162,7 +170,7 @@ class ItemController(RequestHandler):
         index = int(item)
         if index < _redis_client.llen(playlist_key(playlist)):
             _redis_client.lset(playlist_key(playlist), item, "TO_DELETE")
-            _redis_client.lrem(playlist_key(playlist), 0, "TO_DELETE")
+            print str(_redis_client.lrem(playlist_key(playlist), "TO_DELETE"))
             publish_change(playlist_key(playlist), 'item', 'delete')
         self.set_status(204)
         return self.write("")
@@ -173,7 +181,12 @@ class Index(RequestHandler):
         return self.render("index.html")
 
 
-class SocketHandler(WebSocketHandler):
+class SocketIOHandler(tornado.web.RequestHandler):
+    def get(self):
+        print "Here"
+        self.render('static/js/socket.io.min.js')
+
+class SocketHandler(tornadio2.conn.SocketConnection):
 
     class ListenerThread(threading.Thread):
         def __init__(self, client, socket):
@@ -186,10 +199,12 @@ class SocketHandler(WebSocketHandler):
             while not self.end_thread_event.isSet():
                 for item in self._client.listen():
                     if item['type'] == 'message':
-                        self._socket.write_message(item['data'])
+                        #self._socket.write_message(item['data'])
+                        print "new info"
+                        self._socket.send(item['data'])
 
     def __init__(self, *args, **kwargs):
-        WebSocketHandler.__init__(self, *args, **kwargs)
+        tornadio2.conn.SocketConnection.__init__(self, *args, **kwargs)
         self._client = None
         self._channel = None
         self._listener = None
@@ -204,10 +219,11 @@ class SocketHandler(WebSocketHandler):
 
     def on_message(self, msg):
         if msg.kind == 'message':
-            self.write_message(msg.body)
+            self.send(msg.body)
 
-    def open(self, playlist):
-        self._listen(playlist_key(playlist))
+    def on_open(self, request):
+        print "Connecting"
+        self._listen(playlist_key(request.get_argument('playlistid')))
 
     def on_close(self):
         if self._listener is not None:
@@ -219,6 +235,14 @@ _settings = {
     "static_path": os.path.join(os.path.dirname(__file__), "static"),
     "template_path": os.path.join(os.path.dirname(__file__), "templates"),
 }
+
+_ws_router = tornadio2.router.TornadioRouter(SocketHandler)
+_ws_app = tornado.web.Application(
+    _ws_router.apply_routes([(r'/', SocketHandler)]),
+    flash_policy_port=843,
+    flash_policy_file = op.join(ROOT, 'flashpolicy.xml'),
+    socket_io_port = 8002
+)
 
 
 _application = Application ([
@@ -235,9 +259,14 @@ def set_ping(io_loop, timeout):
     io_loop.add_timeout(timeout, lambda: set_ping(io_loop, timeout))
 
 if __name__ == "__main__":
-    _application.listen(8888)
-    HTTPServer(Application(
-               [(r'/Playlists/(.*)/', SocketHandler)])).listen(7657)
+    #_application.listen(8888)
+    #HTTPServer(Application(
+    #           [(r'/Playlists/(.*)/', SocketHandler)])).listen(7657)
+    http_server = tornado.httpserver.HTTPServer(_application)
+    http_server.listen(8888)
+
+    tornadio2.server.SocketServer(_ws_app, xheaders=True, auto_start=False)
+
     _ioloop = tornado.ioloop.IOLoop.instance()
     set_ping(_ioloop, timedelta(seconds=2))
     _ioloop.start()
