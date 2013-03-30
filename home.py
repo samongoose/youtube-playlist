@@ -51,7 +51,7 @@ class PlaylistController(RequestHandler):
         name = _redis_client.get(playlist_name_key(playlist))
         if name is not None:
             playlist_json['name'] = name
-        if (self.get_argument('fmt') == 'json'):
+        if (self.get_argument('fmt', 'html') == 'json'):
             print "writing json response"
             self.set_header('Content-Type', 'application/json')
             return self.write(json.dumps(playlist_json))
@@ -230,7 +230,7 @@ class SocketHandler(tornadio2.conn.SocketConnection):
 
     def on_open(self, request):
         print "Connecting"
-        self._listen(playlist_key(request.get_argument('playlistid')))
+        self._listen(playlist_key(request.get_argument('playlistid', '0')))
 
     def on_close(self):
         if self._listener is not None:
