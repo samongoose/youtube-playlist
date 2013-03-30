@@ -51,7 +51,12 @@ class PlaylistController(RequestHandler):
         name = _redis_client.get(playlist_name_key(playlist))
         if name is not None:
             playlist_json['name'] = name
-        return self.render("playlist_view.html", 
+        if (self.get_argument('fmt') == 'json'):
+            print "writing json response"
+            self.set_header('Content-Type', 'application/json')
+            return self.write(json.dumps(playlist_json))
+        else:
+            return self.render("playlist_view.html", 
                   pid=playlist,
                   name=name, 
                   playlist =json.dumps(playlist_json))
@@ -96,6 +101,7 @@ class PlaylistsController(RequestHandler):
         playlist_data = list(
               PlaylistsController.get_playlist_data(p) for p in results)
          
+        self.set_header('Content-Type', 'application/json')
         return self.write(json.dumps(playlist_data))
 
 
@@ -153,6 +159,7 @@ class ItemsController(RequestHandler):
         playlist_json = json.dumps(
               list(json.loads(s) 
               for s in _redis_client.lrange(playlist_key(playlist), 0, -1)))
+        self.set_header('Content-Type', 'application/json')
         return self.write(playlist_json)
 
 class ItemController(RequestHandler):
