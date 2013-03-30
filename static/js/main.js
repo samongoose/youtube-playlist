@@ -117,7 +117,7 @@ function refreshItems() {
       url:'Items/',
       type:'GET',
       success: function(data) {
-         loadPlaylistItems(JSON.parse(data));
+         loadPlaylistItems(data);
       }
    });
 }
@@ -127,7 +127,7 @@ function refreshTags() {
       url:'Tags/',
       type:'GET',
       success: function(data) {
-         loadPlaylistTags(JSON.parse(data));
+         loadPlaylistTags(data);
       }
    });
 }
