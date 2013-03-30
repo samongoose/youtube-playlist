@@ -230,7 +230,7 @@ class SocketHandler(tornadio2.conn.SocketConnection):
 
     def on_open(self, request):
         print "Connecting"
-        self._listen(playlist_key(request.get_argument('playlistid', '0')))
+        self._listen(playlist_key(request.get_argument('playlistid')))
 
     def on_close(self):
         if self._listener is not None:
@@ -241,6 +241,7 @@ class SocketHandler(tornadio2.conn.SocketConnection):
 _settings = {
     "static_path": os.path.join(os.path.dirname(__file__), "static"),
     "template_path": os.path.join(os.path.dirname(__file__), "templates"),
+    "enabled_protocols": ['xhr-polling']
 }
 
 _ws_router = tornadio2.router.TornadioRouter(SocketHandler)
