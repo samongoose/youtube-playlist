@@ -40,7 +40,6 @@ class PlaylistController(RequestHandler):
     
     @addslash
     def get(self, playlist):
-        print "getting playlist " + str(playlist)
         if len(playlist) <= 0:
             #TODO:404
             return self.write("")
@@ -52,7 +51,6 @@ class PlaylistController(RequestHandler):
         if name is not None:
             playlist_json['name'] = name
         if (self.get_argument('fmt', 'html') == 'json'):
-            print "writing json response"
             self.set_header('Content-Type', 'application/json')
             return self.write(json.dumps(playlist_json))
         else:
@@ -111,7 +109,6 @@ class TagsController(RequestHandler):
         if len(new_tag) <= 0:
             return self.write("")
         next_tag = _redis_client.incr('playlists:%s:next_tagID' % playlist)
-        print 'adding tag ' + str(next_tag)
         added = _redis_client.zadd(
               tags_key(playlist), new_tag, next_tag) == True
 
@@ -177,7 +174,6 @@ class ItemController(RequestHandler):
         index = int(item)
         if index < _redis_client.llen(playlist_key(playlist)):
             _redis_client.lset(playlist_key(playlist), item, "TO_DELETE")
-            print str(_redis_client.lrem(playlist_key(playlist), "TO_DELETE"))
             publish_change(playlist_key(playlist), 'item', 'delete')
         self.set_status(204)
         return self.write("")
@@ -190,7 +186,6 @@ class Index(RequestHandler):
 
 class SocketIOHandler(tornado.web.RequestHandler):
     def get(self):
-        print "Here"
         self.render('static/js/socket.io.min.js')
 
 class SocketHandler(tornadio2.conn.SocketConnection):
@@ -207,7 +202,6 @@ class SocketHandler(tornadio2.conn.SocketConnection):
                 for item in self._client.listen():
                     if item['type'] == 'message':
                         #self._socket.write_message(item['data'])
-                        print "new info"
                         self._socket.send(item['data'])
 
     def __init__(self, *args, **kwargs):
