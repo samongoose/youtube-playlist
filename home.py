@@ -241,10 +241,10 @@ class SocketHandler(tornadio2.conn.SocketConnection):
 _settings = {
     "static_path": os.path.join(os.path.dirname(__file__), "static"),
     "template_path": os.path.join(os.path.dirname(__file__), "templates"),
-    "enabled_protocols": ['xhr-polling']
 }
 
-_ws_router = tornadio2.router.TornadioRouter(SocketHandler)
+_ws_router = tornadio2.router.TornadioRouter(SocketHandler, 
+        user_settings=dict(enabled_protocols=['xhr-polling']))
 _application = tornado.web.Application(
     _ws_router.apply_routes([(r'/socket.io.js', SocketHandler),
         (r"/Playlists/([^/]+)/Items/([^/]+)/?", ItemController),
