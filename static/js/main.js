@@ -238,7 +238,7 @@ function OnSearchTags(tag) {
       url:'/Playlists?tag='+tag,
       type:'GET',
       success: function(data) {
-         var results = JSON.parse(data);
+         var results = data;
          $.each(results, function(count) {
             this.docId = "TagSearchResult"+count;
             $("#TagSearchResults").append(tmpl("tag_search_result_tmpl", this));
